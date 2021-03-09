@@ -20,7 +20,7 @@ func main() {
 	}
 	defer c.Close()
 
-	oriJson := `[{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":["KRW-EOS"]}]`
+	oriJson := `[{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":["KRW-PXL","KRW-BTC"]}]`
 
 	var data []interface{}
 	json.Unmarshal([]byte(oriJson), &data)
@@ -39,7 +39,12 @@ func main() {
 			log.Println("read:", err)
 			return
 		}
-		log.Printf("recv: %v", data2)
+		price := data2["trade_price"].(float64)
+		if price >= 100 {
+			log.Printf("recv: %v", int(data2["trade_price"].(float64)))
+		} else {
+			log.Printf("recv: %v", data2["trade_price"].(float64))
+		}
 
 	}
 

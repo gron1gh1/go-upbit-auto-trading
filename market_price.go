@@ -8,44 +8,66 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// [{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":["KRW-EOS"]}]
+// Upbit Struct
+type Upbit struct {
+	conn *websocket.Conn
+}
+
+// Connect - Upbit WebSocket Connect
+func (u *Upbit) Connect() error {
+	makeURL := url.URL{Scheme: "wss", Host: "api.upbit.com", Path: "websocket/v1"}
+	log.Printf("connect %s", makeURL.String())
+
+	c, _, err := websocket.DefaultDialer.Dial(makeURL.String(), nil)
+	u.conn = c
+	return err
+}
+
+// Request - Upbit WebSocket Coin Data Request
+func (u *Upbit) Request() error {
+	jsonData := `[{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":["KRW-PXL","KRW-BTC"]}]`
+	var data []interface{}
+	json.Unmarshal([]byte(jsonData), &data)
+
+	err := u.conn.WriteJSON(data)
+	return err
+}
+
+// Recv - Recv from Upbit Coin Price
+func (u *Upbit) Recv() error {
+	var recvJSON map[string]interface{}
+	for {
+
+		err := u.conn.ReadJSON(&recvJSON)
+		if err != nil {
+			log.Println("read:", err)
+			return err
+		}
+		price := recvJSON["trade_price"].(float64)
+		coinName := recvJSON["code"]
+		if price >= 100 { // 100원 이상은 호가단위 변경으로 소수점 없음
+			log.Printf("[%s] : %v", coinName, int(price))
+		} else {
+			log.Printf("[%s] : %v", coinName, price)
+		}
+
+	}
+}
 
 func main() {
-	u := url.URL{Scheme: "wss", Host: "api.upbit.com", Path: "websocket/v1"}
-	log.Printf("connect %s", u.String())
+	upbit := Upbit{}
 
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	err := upbit.Connect()
+	defer upbit.conn.Close()
+
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-	defer c.Close()
 
-	oriJson := `[{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":["KRW-PXL","KRW-BTC"]}]`
-
-	var data []interface{}
-	json.Unmarshal([]byte(oriJson), &data)
-
-	log.Printf("해석 %v\n", data[1].(map[string]interface{})["type"].(string))
-
-	errr := c.WriteJSON(data)
-	if errr != nil {
-		log.Fatal("err", errr)
-	}
-	var data2 map[string]interface{}
-	for {
-
-		err := c.ReadJSON(&data2)
-		if err != nil {
-			log.Println("read:", err)
-			return
-		}
-		price := data2["trade_price"].(float64)
-		if price >= 100 {
-			log.Printf("recv: %v", int(data2["trade_price"].(float64)))
-		} else {
-			log.Printf("recv: %v", data2["trade_price"].(float64))
-		}
-
+	err = upbit.Request()
+	if err != nil {
+		log.Fatal("err", err)
 	}
 
+	upbit.Recv()
 }

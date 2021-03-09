@@ -2,18 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/url"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
 
 // Upbit Struct
 type Upbit struct {
-	conn *websocket.Conn
+	conn    *websocket.Conn
+	coinArr []string
 }
 
-// Connect - Upbit WebSocket Connect
+// Connect Upbit WebSocket
 func (u *Upbit) Connect() error {
 	makeURL := url.URL{Scheme: "wss", Host: "api.upbit.com", Path: "websocket/v1"}
 	log.Printf("connect %s", makeURL.String())
@@ -23,9 +26,19 @@ func (u *Upbit) Connect() error {
 	return err
 }
 
-// Request - Upbit WebSocket Coin Data Request
+// CoinAppend - Add a coin to check the price
+func (u *Upbit) CoinAppend(coinNames []string) {
+	u.coinArr = append(u.coinArr, coinNames...)
+}
+
+// Request Upbit WebSocket Coin Data
 func (u *Upbit) Request() error {
-	jsonData := `[{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":["KRW-PXL","KRW-BTC"]}]`
+	newCoinArr := []string{}
+	for _, coin := range u.coinArr {
+		newCoinArr = append(newCoinArr, "\""+coin+"\"")
+	}
+	jsonData := fmt.Sprintf(`[{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":[%s]}]`, strings.Join(newCoinArr, ", "))
+
 	var data []interface{}
 	json.Unmarshal([]byte(jsonData), &data)
 
@@ -33,11 +46,10 @@ func (u *Upbit) Request() error {
 	return err
 }
 
-// Recv - Recv from Upbit Coin Price
+// Recv from Upbit Coin Price
 func (u *Upbit) Recv() error {
 	var recvJSON map[string]interface{}
 	for {
-
 		err := u.conn.ReadJSON(&recvJSON)
 		if err != nil {
 			log.Println("read:", err)
@@ -50,7 +62,6 @@ func (u *Upbit) Recv() error {
 		} else {
 			log.Printf("[%s] : %v", coinName, price)
 		}
-
 	}
 }
 
@@ -59,10 +70,11 @@ func main() {
 
 	err := upbit.Connect()
 	defer upbit.conn.Close()
-
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
+
+	upbit.CoinAppend([]string{"KRW-PXL", "KRW-BTC", "KRW-SAND"})
 
 	err = upbit.Request()
 	if err != nil {

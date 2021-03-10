@@ -35,7 +35,7 @@ func (u *Upbit) CoinAppend(coinNames []string) {
 func (u *Upbit) Request() error {
 	newCoinArr := []string{}
 	for _, coin := range u.coinArr {
-		newCoinArr = append(newCoinArr, "\""+coin+"\"")
+		newCoinArr = append(newCoinArr, fmt.Sprintf(`"KRW-%s"`, coin))
 	}
 	jsonData := fmt.Sprintf(`[{"ticket":"UNIQUE_TICKET"},{"type":"ticker", "codes":[%s]}]`, strings.Join(newCoinArr, ", "))
 
@@ -74,12 +74,11 @@ func main() {
 		log.Fatal("dial:", err)
 	}
 
-	upbit.CoinAppend([]string{"KRW-PXL", "KRW-BTC", "KRW-SAND"})
+	upbit.CoinAppend([]string{"DOT", "BTC", "MBL"})
 
 	err = upbit.Request()
 	if err != nil {
 		log.Fatal("err", err)
 	}
-
 	upbit.Recv()
 }
